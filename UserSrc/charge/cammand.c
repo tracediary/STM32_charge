@@ -10,20 +10,14 @@
 #include "cammand.h"
 #include "cJSON_Process.h"
 #include "maintain.h"
+#include "networkUtil.h"
 
-
-
-
-
-MqttSendBuf_S activeSendBuf[2];
-MqttSendBuf_S querySendBuf[2];
 
 void vTimerCallback(xTimerHandle pxTimer);
 
 
 extern QueueHandle_t activeQueue;
 extern QueueHandle_t queryQueue;
-extern QueueHandle_t sendMqttQueue;
 extern QueueHandle_t closeInfoQueue;
 extern QueueHandle_t openInfoQueue;
 
@@ -44,8 +38,8 @@ const uint32_t eventChannel[CHANNEL_MAX] = { EVENTBIT_CHANNEL_1, EVENTBIT_CHANNE
 
 
 bool excuteAction(uint32_t channelId, ACTION_E action);
-uint8_t updatActiveJson(cJSON* cJSON_Data, Msg_S* msg);
-uint8_t updatQueryJson(cJSON* cJSON_Data, QueryChannelInfo_S* chInfo);
+uint8_t updateActiveJson(cJSON* cJSON_Data, Msg_S* msg);
+uint8_t updateQueryJson(cJSON* cJSON_Data, QueryChannelInfo_S* chInfo);
 void updateMaintain(Msg_S msgBuf);
 
 
@@ -54,21 +48,8 @@ void activeTask(void *pvParameters)
     BaseType_t xReturn = pdFALSE;
     Msg_S msgBuf;
     cJSON* cJSON_Data = cJSON_Data_InitActive();
-    uint8_t index = 0;
-    char* p ;
 	
-	activeSendBuf[0].sendBuf = pvPortMalloc(MQTT_TX_BUF_SIZE);
-	activeSendBuf[1].sendBuf = pvPortMalloc(MQTT_TX_BUF_SIZE);
-	
-	if(activeSendBuf[0].sendBuf == NULL  || activeSendBuf[1].sendBuf == NULL)
-	{
-		Debug("apply ram for active send buf failed, restart!");
-		//TODO 重启
-		while(1)
-			;
-	}
-	
-    Debug("active task start\n");
+    printf("active task start\n");
 	xEventGroupSetBits(sysEventHandler, EVENTBIT_SYS_ACTIVE_TASK);
 
     while (1)
@@ -79,37 +60,18 @@ void activeTask(void *pvParameters)
             continue;
         }
         msgBuf.executeStatus = excuteAction(msgBuf.channelID, msgBuf.action) ? SUC : ERR;
-#if 0
-        Debug("active task get msg, the id is %d, action is %d, time is %d, SN is %d, status is %d, type is %d\n",
-              msgBuf.channelID, msgBuf.action, msgBuf.maxTime, msgBuf.msgSN, msgBuf.executeStatus, msgBuf.msgType);
-#endif
 
-        if (!updatActiveJson(cJSON_Data, &msgBuf))
+        if (!updateActiveJson(cJSON_Data, &msgBuf))
         {
             printf("update json failed, do nothing\n");
-            continue;
-        }
+            goto UPDATA_MAINTAIN;
+        }	
+		send2Mqtt(cJSON_Data);
 
-        p = cJSON_Print(cJSON_Data);
-        activeSendBuf[index].lenth = strlen(p);
-        if (activeSendBuf[index].lenth > MQTT_TX_BUF_SIZE)
-        {
-            printf("the active ack data too long\n");
-            continue;
-        }
-
-        memset(activeSendBuf[index].sendBuf , 0, MQTT_TX_BUF_SIZE);
-        memcpy(activeSendBuf[index].sendBuf, p, activeSendBuf[index].lenth);
+	UPDATA_MAINTAIN:	
 		
-		//Debug("the json is: %sthe lenth is %d\n",activeSendBuf[index].sendBuf,activeSendBuf[index].lenth);
-		
-        vPortFree(p);
-        p = NULL;
-
-        xQueueSend(sendMqttQueue, &activeSendBuf[index], DELAY_BASE_SEC_TIME);
-		updateMaintain(msgBuf);
-        index = !index;
-		
+		updateMaintain(msgBuf);		
+		Debug("wait next active cmd\n");		
     }
 }
 
@@ -146,33 +108,18 @@ void queryTask(void *pvParameters)
 {
     BaseType_t xReturn = pdFALSE;
 	QueryChannelInfo_S queryChannelInfo;
-	
 	ChannelStatus_S channelStatus;
     Msg_S msgBuf;
-	
-	uint8_t index = 0;
-    char* p ;
-	
+
 	cJSON* cJSON_Data = cJSON_Data_InitQuery();
 	
-	querySendBuf[0].sendBuf = pvPortMalloc(MQTT_TX_BUF_SIZE);
-	querySendBuf[1].sendBuf = pvPortMalloc(MQTT_TX_BUF_SIZE);
-	
-	if(querySendBuf[0].sendBuf == NULL  || querySendBuf[1].sendBuf == NULL)
-	{
-		Debug("apply ram for query send buf failed, restart!");
-		//TODO 重启
-		while(1)
-			;
-	}
-    Debug("query task start\n");
+    printf("query task start\n");
 	xEventGroupSetBits(sysEventHandler, EVENTBIT_SYS_QUERY_TASK);
     while (1)
     {
         xReturn = xQueueReceive(queryQueue, &msgBuf, portMAX_DELAY);
         if (!xReturn)
         {
-			Error("++++++++++++++++");
             continue;
         }
 		
@@ -180,29 +127,12 @@ void queryTask(void *pvParameters)
 		channelStatus = getChannelStatus(msgBuf.channelID);
 		queryChannelInfo.channelInfo = &channelStatus;
 		
-		if( !updatQueryJson(cJSON_Data, &queryChannelInfo))
+		if( !updateQueryJson(cJSON_Data, &queryChannelInfo))
 		{
 			Error("update query json failed\n");
 			continue;
 		}
-		
-		p = cJSON_Print(cJSON_Data);
-        querySendBuf[index].lenth = strlen(p);
-        if (querySendBuf[index].lenth > MQTT_TX_BUF_SIZE)
-        {
-            printf("the active ack data too long\n");
-            continue;
-        }
-
-        memset(querySendBuf[index].sendBuf , 0, MQTT_TX_BUF_SIZE);
-        memcpy(querySendBuf[index].sendBuf, p, querySendBuf[index].lenth);
-		
-		Debug("the json is the lenth is %d\n",querySendBuf[index].lenth);
-		
-        vPortFree(p);
-        p = NULL;
-        xQueueSend(sendMqttQueue, &querySendBuf[index], DELAY_BASE_SEC_TIME);
-        index = !index;
+		send2Mqtt(cJSON_Data);
 		printf("wait next query event\n");
        
     }
@@ -212,7 +142,7 @@ void queryTask(void *pvParameters)
 
 
 
-uint8_t updatActiveJson(cJSON* cJSON_Data, Msg_S* msg)
+uint8_t updateActiveJson(cJSON* cJSON_Data, Msg_S* msg)
 {
     uint8_t ret = 1;
     double msgType = msg->msgType;
@@ -239,7 +169,7 @@ uint8_t updatActiveJson(cJSON* cJSON_Data, Msg_S* msg)
 }
 
 
-uint8_t updatQueryJson(cJSON* cJSON_Data, QueryChannelInfo_S* chInfo)
+uint8_t updateQueryJson(cJSON* cJSON_Data, QueryChannelInfo_S* chInfo)
 {
     uint8_t ret = 1;
 	

@@ -10,6 +10,7 @@
 #include "maintain.h"
 #include <cJSON_Process.h>
 #include "cammand.h"
+#include "networkUtil.h"
 
 UsartRx_S hlwData;
 uint8_t * hlwUartCurdataAddr;
@@ -21,7 +22,7 @@ TimerHandle_t PeriRepTimer;
 
 extern const uint32_t eventChannel[CHANNEL_MAX];
 extern EventGroupHandle_t hlwEventHandler;
-extern QueueHandle_t sendMqttQueue;
+
 extern QueueHandle_t closeInfoQueue;
 extern QueueHandle_t openInfoQueue;
 extern EventGroupHandle_t sysEventHandler;
@@ -37,7 +38,6 @@ uint8_t updateMaintainJson(cJSON* cJSON_Data, CloseChannelInfo_S* chInfo);
 bool getHlwData(uint8_t* data, ChannelStatus_S *channelInfo);
 void switchChannel(uint32_t channelID);
 void vTimerCallback(xTimerHandle pxTimer);
-bool send2Mqtt(MqttSendBuf_S *buf, cJSON* cJSON_Data);
 
 
 void clearChannelInfo(uint32_t channelID)
@@ -222,43 +222,15 @@ void changeTimerPeriod( uint32_t period)
 
 
 
-bool send2Mqtt(MqttSendBuf_S *buf, cJSON* cJSON_Data)
-{
-	char* p ;
-	
-	p = cJSON_Print(cJSON_Data);
-	
-	
-			
-	buf->lenth = strlen(p);
-	if (buf->lenth > MQTT_TX_BUF_SIZE)
-	{
-		printf("%s json data too long\n", pcTaskGetName(xTaskGetCurrentTaskHandle()));
-		vPortFree(p);
-		p = NULL;
-		return false;
-	}
-	
-	Debug("%s\n", p);
-	memset(buf->sendBuf, 0, MQTT_TX_BUF_SIZE);
-	memcpy(buf->sendBuf, p, buf->lenth);
-	vPortFree(p);
-	p = NULL;
-	
-	Debug("%s send json to net\n", pcTaskGetName(xTaskGetCurrentTaskHandle()));
-	
-	xQueueSend(sendMqttQueue, buf, DELAY_BASE_SEC_TIME);
-	return true;
-	
-}
 
 
-void sysStartEvent(MqttSendBuf_S *buf)
+
+void sysStartEvent()
 {
 	int i  = 0;
 	cJSON* cJSON_Data = cJSON_Data_InitStartEvent();
 	
-	send2Mqtt(buf,cJSON_Data);
+	send2Mqtt(cJSON_Data);
 	
 	if(cJSON_Data!= NULL)
 	{
@@ -276,31 +248,17 @@ void maintainTask(void *pvParameters)
 	cJSON* cJSON_Data = cJSON_Data_InitCloseChInfo();
 	
 	CloseChannelInfo_S closeInfo;
-
 	uint8_t index = 0;
-	uint8_t bufIndex = 0;
-    char* p ;
-	MqttSendBuf_S maintainSendBuf[2];
-	
-	maintainSendBuf[0].sendBuf = pvPortMalloc(MQTT_TX_BUF_SIZE);
-	maintainSendBuf[1].sendBuf = pvPortMalloc(MQTT_TX_BUF_SIZE);
-	
-	if(maintainSendBuf[0].sendBuf == NULL  || maintainSendBuf[1].sendBuf == NULL)
-	{
-		Debug("apply ram for maintain send buf failed, restart!");
-		//TODO 重启
-		while(1)
-			;
-	}
+
 	countSemphr = xSemaphoreCreateCounting(0xffff,0);
 	
-	for(index = 0;index<CHANNEL_MAX;index++)
+	for(index = 0;index < CHANNEL_MAX;index++)
 	{
 		RecMutexChannelSemphrs[index] = xSemaphoreCreateRecursiveMutex();
 	}
 	
 	initChannel();
-    Debug("maintain task start\n");
+    printf("maintain task start\n");
 	
 	xEventGroupSetBits(sysEventHandler, EVENTBIT_SYS_MAINTAIN_TASK);
 	
@@ -358,14 +316,10 @@ void maintainTask(void *pvParameters)
 				Error("update maintain json failed, do nothing\n");
 				goto RELEASE_SEMPHR;
 			}
+			send2Mqtt(cJSON_Data);
 			
-
-			if(send2Mqtt(&maintainSendBuf[bufIndex],cJSON_Data))
-			{
-				bufIndex = !bufIndex;
-			}
 			clearChannelInfo((index + 1));
-			
+
 RELEASE_SEMPHR:
 			xSemaphoreGiveRecursive(RecMutexChannelSemphrs[index]);
 			
@@ -381,28 +335,15 @@ void uploadCloseInfoTask(void *pvParameters)
 {
 	BaseType_t xReturn = pdTRUE;
 	uint32_t channelId;
-	MqttSendBuf_S uploadCloseInfoBuf[2];
 	uint8_t index = 0;
-	char* p ;
+
 	cJSON* cJSON_Data = cJSON_Data_InitCloseChInfo();
 	
 	CloseChannelInfo_S closeInfo;
 	ChannelStatus_S channelInfo;
-	
-	uploadCloseInfoBuf[0].sendBuf = pvPortMalloc(MQTT_TX_BUF_SIZE);
-	uploadCloseInfoBuf[1].sendBuf = pvPortMalloc(MQTT_TX_BUF_SIZE);
-	
-	if(uploadCloseInfoBuf[0].sendBuf == NULL  || uploadCloseInfoBuf[1].sendBuf == NULL)
-	{
-		Debug("apply ram for maintain send buf failed, restart!");
-		//TODO 重启
-		while(1)
-			;
-	}
-	
 	xEventGroupSetBits(sysEventHandler, EVENTBIT_SYS_UP_CL_INFO_TASK);
 
-	Debug("upload close info task start\n");
+	printf("upload close info task start\n");
 	
 	while (1)
 	{
@@ -421,7 +362,7 @@ void uploadCloseInfoTask(void *pvParameters)
 		
 		if (xSemaphoreTakeRecursive(RecMutexChannelSemphrs[channelId - 1], (DELAY_BASE_10MIL_TIME * 10)) == pdFALSE)
 		{
-			Error("upload task get the mutex semphr failed\n");
+			Error("upload task get the mutex semphr failed, clear cache\n");
 			goto CLEAR_CACHE;
 		}
 		channelInfo = getChannelStatus(channelId);
@@ -430,17 +371,11 @@ void uploadCloseInfoTask(void *pvParameters)
 		closeInfo.detail = SYS_CLOSE;
 		closeInfo.channelInfo = &channelInfo;
 		
-		if(!updateMaintainJson(cJSON_Data, &closeInfo))
+		if(updateMaintainJson(cJSON_Data, &closeInfo))
 		{
-			goto RELEASE_SEMPHR;
+			send2Mqtt(cJSON_Data);
 		}
 		
-		if(send2Mqtt(&uploadCloseInfoBuf[index],cJSON_Data))
-		{
-			index = !index;
-		}
-		
-	RELEASE_SEMPHR:
 		xSemaphoreGiveRecursive(RecMutexChannelSemphrs[channelId - 1]);
 		
 	CLEAR_CACHE:
@@ -462,7 +397,7 @@ void maintainOpenTask(void *pvParameters)
 	
 	xEventGroupSetBits(sysEventHandler, EVENTBIT_SYS_MT_OPEN_TASK);
 
-	Debug("maintain open task start\n");
+	printf("maintain open task start\n");
 	
 	while (1)
 	{
@@ -525,7 +460,7 @@ void maintainHlwTask(void *pvParameters)
 	
 	xEventGroupSetBits(sysEventHandler, EVENTBIT_SYS_MT_HLW_TASK);
 	
-	Debug("maintain hlw task start\n");
+	printf("maintain hlw task start\n");
 
 	while(1)
 	{
@@ -549,7 +484,7 @@ void maintainHlwTask(void *pvParameters)
 			}
 			
 			xEventGroupClearBits(hlwEventHandler, EVENTBIT_HLW_UART_REC);
-			eventBit = xEventGroupWaitBits(hlwEventHandler, EVENTBIT_HLW_UART_REC, pdTRUE, pdFALSE, (DELAY_BASE_SEC_TIME * 5));
+			eventBit = xEventGroupWaitBits(hlwEventHandler, EVENTBIT_HLW_UART_REC, pdTRUE, pdFALSE, (DELAY_BASE_SEC_TIME*5));
 			if ((eventBit & EVENTBIT_HLW_UART_REC) == 0)
 			{
 				//等待串口数据超时，切换到下一个通道
@@ -618,38 +553,24 @@ void periRepTask(void *pvParameters)
 {
 	EventBits_t eventValue = 0;
 	uint32_t channelId;
-	MqttSendBuf_S periRepBuf[2];
-	uint8_t index = 0;
 	uint8_t i = 0;
-	char* p ;
-	cJSON* cJSON_Data = cJSON_Data_InitChStatusRep();	
-	cJSON* cJSON_idle = cJSON_Data_InitChannelIdle();
-
 	ChannelStatus_S channelInfo;
-	
-	periRepBuf[0].sendBuf = pvPortMalloc(MQTT_TX_BUF_SIZE);
-	periRepBuf[1].sendBuf = pvPortMalloc(MQTT_TX_BUF_SIZE);
-	
-	if(periRepBuf[0].sendBuf == NULL  || periRepBuf[1].sendBuf == NULL)
-	{
-		Debug("apply ram for periRepTask send buf failed, restart!");
-		//TODO 重启
-		while(1)
-			;
-	}
-	
+
+	cJSON* cJSON_Data = cJSON_Data_InitChStatusRep();	
+	cJSON* cJSON_idle = cJSON_Data_InitChannelIdle();	
 	xEventGroupSetBits(sysEventHandler, EVENTBIT_SYS_PERI_REP_TASK);
 
-	Debug("peried report task start\n");
+	printf("peried report task start\n");
 
-	sysStartEvent(&periRepBuf[0]);
+	vTaskDelay(DELAY_BASE_SEC_TIME * 15);
+	sysStartEvent();
 	while (1)
 	{
 		eventValue = xEventGroupWaitBits(hlwEventHandler, EVENTBIT_CHANNEL, pdFALSE, pdFALSE, MAINTAIN_PERIDIC_REPORT);
 		if ((eventValue & EVENTBIT_CHANNEL) == 0)
 		{
-			//TODO 无一通道使用，上报所有空闲
-			send2Mqtt(&periRepBuf[index],cJSON_idle);
+			//无一通道使用，上报所有空闲
+			send2Mqtt(cJSON_idle);
 			
 			continue;
 		}
@@ -673,14 +594,11 @@ void periRepTask(void *pvParameters)
 			}
 			
 			channelInfo = getChannelStatus(channelId);
-			updatePeriRepJson(cJSON_Data, &channelInfo);
-			
-			
-			if(send2Mqtt(&periRepBuf[index],cJSON_Data))
+			if(updatePeriRepJson(cJSON_Data, &channelInfo))
 			{
-				index = !index;
+				send2Mqtt(cJSON_Data);
 			}
-		RELEASE_SEMPHR:
+
 			xSemaphoreGiveRecursive(RecMutexChannelSemphrs[i]);
 		}
 	}

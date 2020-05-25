@@ -117,37 +117,33 @@ void sendTask(void *pvParameters)
 #endif
 void appTaskInit(void)
 {
-#if 1
-	xTaskCreate(mqttRecTask, "mqttRecTask", (configMINIMAL_STACK_SIZE * 8), NULL, (tskIDLE_PRIORITY + 9),
+
+	xTaskCreate(mqttRecTask, "mqttRecTask", (configMINIMAL_STACK_SIZE * 4), NULL, (tskIDLE_PRIORITY + 9),
 			&MQTT_Rec_Handle);
 
-	xTaskCreate(mqttSendTask, "mqttSendTask", (configMINIMAL_STACK_SIZE * 8), NULL, (tskIDLE_PRIORITY + 8),
+	xTaskCreate(mqttSendTask, "mqttSendTask", (configMINIMAL_STACK_SIZE * 4), NULL, (tskIDLE_PRIORITY + 8),
 			&MQTT_Send_Handle);
-	xTaskCreate(activeTask, "activeTask", (configMINIMAL_STACK_SIZE * 6), NULL, (tskIDLE_PRIORITY + 7),
+	xTaskCreate(activeTask, "activeTask", (configMINIMAL_STACK_SIZE * 4), NULL, (tskIDLE_PRIORITY + 7),
 			&Active_Handle);
 
-	xTaskCreate(queryTask, "queryTask", (configMINIMAL_STACK_SIZE * 6), NULL, (tskIDLE_PRIORITY + 6),
+	xTaskCreate(queryTask, "queryTask", (configMINIMAL_STACK_SIZE * 4), NULL, (tskIDLE_PRIORITY + 6),
 			&Query_Handle);
 	
-	xTaskCreate(maintainTask, "maintainTask", (configMINIMAL_STACK_SIZE * 6), NULL, (tskIDLE_PRIORITY + 1),
+	xTaskCreate(maintainTask, "maintainTask", (configMINIMAL_STACK_SIZE * 4), NULL, (tskIDLE_PRIORITY + 1),
 			&Maintain_Handle);
 	
-	xTaskCreate(maintainOpenTask, "maintainOpenTask", (configMINIMAL_STACK_SIZE * 6), NULL, (tskIDLE_PRIORITY + 5),
+	xTaskCreate(maintainOpenTask, "maintainOpenTask", (configMINIMAL_STACK_SIZE * 4), NULL, (tskIDLE_PRIORITY + 5),
 			&MT_Open_Handle);
 	
-	xTaskCreate(uploadCloseInfoTask, "uploadCloseInfoTask", (configMINIMAL_STACK_SIZE * 6), NULL, (tskIDLE_PRIORITY + 4),
+	xTaskCreate(uploadCloseInfoTask, "uploadCloseInfoTask", (configMINIMAL_STACK_SIZE * 4), NULL, (tskIDLE_PRIORITY + 4),
 			&Upload_CL_Info_Handle);
 
-	xTaskCreate(maintainHlwTask, "maintainHlwTask", (configMINIMAL_STACK_SIZE * 6), NULL, (tskIDLE_PRIORITY + 3),
+	xTaskCreate(maintainHlwTask, "maintainHlwTask", (configMINIMAL_STACK_SIZE * 4), NULL, (tskIDLE_PRIORITY + 3),
 			&MT_Hlw_Handle);
-#if 1		
-	xTaskCreate(periRepTask, "periRepTask", (configMINIMAL_STACK_SIZE * 6), NULL, (tskIDLE_PRIORITY + 2),
+
+	xTaskCreate(periRepTask, "periRepTask", (configMINIMAL_STACK_SIZE * 4), NULL, (tskIDLE_PRIORITY + 2),
 			&PeriRep_Handle);
 	creatTimer();
-	#endif
-	//PeriRep_Handle();
-	
-#endif
 
 }
 

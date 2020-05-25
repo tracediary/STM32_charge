@@ -103,15 +103,16 @@ void mqttSendTask(void *pvParameters)
 {
 
 	MqttSendBuf_S databuf ;
+	size_t freeSize = 0;
 
 	BaseType_t xReturn = pdTRUE;
-	Debug("mqtt send task start\n");
+	printf("mqtt send task start\n");
 	
 	netTxData = pvPortMalloc(MQTT_TX_BUF_SIZE);
 	
 	if(netTxData == NULL )
 	{
-		Debug("apply ram for query send buf failed, restart!");
+		Error("apply ram for query send buf failed, restart!\n");
 		//TODO 重启
 		while(1)
 			;
@@ -130,6 +131,11 @@ void mqttSendTask(void *pvParameters)
 
 		netUartSend(databuf.sendBuf, databuf.lenth);
 		Debug("mqtt send over, the lenth is %d, the string is %s\n",databuf.lenth,databuf.sendBuf );
+		vPortFree(databuf.sendBuf);
+		databuf.sendBuf = NULL;	
+		
+		freeSize = xPortGetFreeHeapSize();
+		printf("%s after mqtt send the free size is %d\n", pcTaskGetName(xTaskGetCurrentTaskHandle()),freeSize);
 	}
 }
 
@@ -146,15 +152,6 @@ void clearMsgBuf(Msg_S *msg)
 	msg->msgType = ERR_MSG;
 }
 	
-
-
-
-
-
-
-
-
-
 
 
 

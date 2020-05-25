@@ -225,7 +225,7 @@ void StartDefaultTask(void const * argument)
 	int i  = 0;
 	
 	xEventGroupWaitBits(sysEventHandler, EVENTBIT_SYS_TASK, pdFALSE, pdTRUE, portMAX_DELAY);
-	//HAL_GPIO_WritePin(BUZZER_GPIO_Port, BUZZER_Pin, GPIO_PIN_SET);
+	HAL_GPIO_WritePin(BUZZER_GPIO_Port, BUZZER_Pin, GPIO_PIN_SET);
 	osDelay(200);
 	HAL_GPIO_WritePin(BUZZER_GPIO_Port, BUZZER_Pin, GPIO_PIN_RESET);
 

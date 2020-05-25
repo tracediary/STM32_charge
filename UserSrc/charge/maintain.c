@@ -182,14 +182,15 @@ uint8_t updatePeriRepJson(cJSON* cJSON_Data, ChannelStatus_S* chInfo)
 void switchChannel(uint32_t channelID)
 {
 	uint8_t i = 0;
-	if(channelID > CHANNEL_MAX || CHANNEL_MAX < 1)
+	if(channelID > CHANNEL_MAX || channelID < 1)
 	{
+		Error("switch channel id invalid\n");
 		return;
 	}
 	
 	for(;i < SWITCH_MAX; i++)
 	{
-		HAL_GPIO_WritePin(switchInfo[i].keyPort, switchInfo[i].keyPin, ( (channelID &(1<<i)) ? GPIO_PIN_SET:GPIO_PIN_RESET ) );
+		HAL_GPIO_WritePin(switchInfo[i].keyPort, switchInfo[i].keyPin, ( ((channelID - 1) &(1<<i)) ? GPIO_PIN_SET:GPIO_PIN_RESET ) );
 	}
 }
 
@@ -525,11 +526,6 @@ void maintainHlwTask(void *pvParameters)
 	xEventGroupSetBits(sysEventHandler, EVENTBIT_SYS_MT_HLW_TASK);
 	
 	Debug("maintain hlw task start\n");
-	
-	while(1)
-	{
-		vTaskDelay(10000);
-	}
 
 	while(1)
 	{

@@ -103,7 +103,7 @@ void mqttSendTask(void *pvParameters)
 {
 
 	MqttSendBuf_S databuf ;
-	size_t freeSize = 0;
+	//size_t freeSize = 0;
 
 	BaseType_t xReturn = pdTRUE;
 	printf("mqtt send task start\n");
@@ -134,8 +134,8 @@ void mqttSendTask(void *pvParameters)
 		vPortFree(databuf.sendBuf);
 		databuf.sendBuf = NULL;	
 		
-		freeSize = xPortGetFreeHeapSize();
-		printf("%s after mqtt send the free size is %d\n", pcTaskGetName(xTaskGetCurrentTaskHandle()),freeSize);
+		//freeSize = xPortGetFreeHeapSize();
+		//printf("%s after mqtt send the free size is %d\n", pcTaskGetName(xTaskGetCurrentTaskHandle()),freeSize);
 	}
 }
 

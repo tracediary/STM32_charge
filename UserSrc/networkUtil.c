@@ -10,12 +10,12 @@ bool send2Mqtt(cJSON* cJSON_Data)
 {
 	char* p ;
 	
-	size_t freeSize = 0;
+	//size_t freeSize = 0;
 	
 	MqttSendBuf_S buf;
 	
-	freeSize = xPortGetFreeHeapSize();
-	printf("%s before apply the free size is %d\n", pcTaskGetName(xTaskGetCurrentTaskHandle()),freeSize);
+	//freeSize = xPortGetFreeHeapSize();
+	//printf("%s before apply the free size is %d\n", pcTaskGetName(xTaskGetCurrentTaskHandle()),freeSize);
 	
 	p = cJSON_Print(cJSON_Data);
 	buf.lenth = strlen(p);
@@ -34,8 +34,8 @@ bool send2Mqtt(cJSON* cJSON_Data)
 		return false;
 	}
 	
-	freeSize = xPortGetFreeHeapSize();	
-	printf("%s after apply the free size is %d\n", pcTaskGetName(xTaskGetCurrentTaskHandle()),freeSize);
+	//freeSize = xPortGetFreeHeapSize();	
+	//printf("%s after apply the free size is %d\n", pcTaskGetName(xTaskGetCurrentTaskHandle()),freeSize);
 
 	memset(buf.sendBuf, 0, (buf.lenth + 5));
 	memcpy(buf.sendBuf, p, buf.lenth);
@@ -51,8 +51,8 @@ bool send2Mqtt(cJSON* cJSON_Data)
 		return false;
 	}
 	
-	freeSize = xPortGetFreeHeapSize();	
-	printf("%s after send the free size is %d\n", pcTaskGetName(xTaskGetCurrentTaskHandle()),freeSize);
+	//freeSize = xPortGetFreeHeapSize();	
+	//printf("%s after send the free size is %d\n", pcTaskGetName(xTaskGetCurrentTaskHandle()),freeSize);
 	
 	
 	return true;

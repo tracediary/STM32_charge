@@ -1,7 +1,7 @@
 [PreviousGenFiles]
-HeaderPath=E:/fire/project/stm32_charge/Inc
+HeaderPath=E:/fire/github/stm32_charge/Inc
 HeaderFiles=gpio.h;dma.h;FreeRTOSConfig.h;rtc.h;usart.h;stm32f1xx_it.h;stm32f1xx_hal_conf.h;main.h;iwdg.h;
-SourcePath=E:/fire/project/stm32_charge/Src
+SourcePath=E:/fire/github/stm32_charge/Src
 SourceFiles=gpio.c;dma.c;freertos.c;rtc.c;usart.c;stm32f1xx_it.c;stm32f1xx_hal_msp.c;main.c;iwdg.c;
 
 [PreviousLibFiles]

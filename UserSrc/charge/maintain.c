@@ -230,7 +230,7 @@ void sysStartEvent()
 	int i  = 0;
 	cJSON* cJSON_Data = cJSON_Data_InitStartEvent();
 	
-	send2Mqtt(cJSON_Data);
+	send2Mqtt(cJSON_Data,SYS_START_SERIAL);
 	
 	if(cJSON_Data!= NULL)
 	{
@@ -288,7 +288,7 @@ void maintainTask(void *pvParameters)
 			{
 				goto RELEASE_SEMPHR;
 			}
-			if(chStatus[index].curTime > chStatus[index].maxTime)
+			if(chStatus[index].curTime >= chStatus[index].maxTime)
 			{
 				closeInfo.detail = TIME_EXPIRE_CLOSE;
 			}
@@ -316,7 +316,7 @@ void maintainTask(void *pvParameters)
 				Error("update maintain json failed, do nothing\n");
 				goto RELEASE_SEMPHR;
 			}
-			send2Mqtt(cJSON_Data);
+			send2Mqtt(cJSON_Data,CLOSE_INFO_SERIAL);
 			
 			clearChannelInfo((index + 1));
 
@@ -373,7 +373,7 @@ void uploadCloseInfoTask(void *pvParameters)
 		
 		if(updateMaintainJson(cJSON_Data, &closeInfo))
 		{
-			send2Mqtt(cJSON_Data);
+			send2Mqtt(cJSON_Data,CLOSE_INFO_SERIAL);
 		}
 		
 		xSemaphoreGiveRecursive(RecMutexChannelSemphrs[channelId - 1]);
@@ -567,10 +567,11 @@ void periRepTask(void *pvParameters)
 	while (1)
 	{
 		eventValue = xEventGroupWaitBits(hlwEventHandler, EVENTBIT_CHANNEL, pdFALSE, pdFALSE, MAINTAIN_PERIDIC_REPORT);
+		//eventValue = xEventGroupWaitBits(hlwEventHandler, EVENTBIT_CHANNEL, pdFALSE, pdFALSE, 60000);
 		if ((eventValue & EVENTBIT_CHANNEL) == 0)
 		{
 			//无一通道使用，上报所有空闲
-			send2Mqtt(cJSON_idle);
+			send2Mqtt(cJSON_idle,SYS_IDLE_SERIAL);
 			
 			continue;
 		}
@@ -596,7 +597,7 @@ void periRepTask(void *pvParameters)
 			channelInfo = getChannelStatus(channelId);
 			if(updatePeriRepJson(cJSON_Data, &channelInfo))
 			{
-				send2Mqtt(cJSON_Data);
+				send2Mqtt(cJSON_Data,PERIOD_SERIAL);
 			}
 
 			xSemaphoreGiveRecursive(RecMutexChannelSemphrs[i]);

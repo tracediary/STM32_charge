@@ -66,7 +66,7 @@ void activeTask(void *pvParameters)
             printf("update json failed, do nothing\n");
             goto UPDATA_MAINTAIN;
         }	
-		send2Mqtt(cJSON_Data);
+		send2Mqtt(cJSON_Data,SET_CHANNEL_ACK_SERIAL);
 
 	UPDATA_MAINTAIN:	
 		
@@ -132,7 +132,7 @@ void queryTask(void *pvParameters)
 			Error("update query json failed\n");
 			continue;
 		}
-		send2Mqtt(cJSON_Data);
+		send2Mqtt(cJSON_Data,QUERY_CHANNEL_ACK_SERIAL);
 		printf("wait next query event\n");
        
     }

@@ -29,6 +29,9 @@
 
 /**********topic define**********************************/
 #define TOPIC_CODE_LEN					3
+#define TOPIC_NUM						6
+
+#define MULTI_TOPIC						1
 
 #define SYS_START						"100"
 #define SYS_IDLE						"101"
@@ -39,6 +42,21 @@
 
 #define QUERY_CHANNEL_ACK				"501"
 #define SET_CHANNEL_ACK					"601"
+
+
+#define SYS_START_SERIAL				0
+#define SYS_IDLE_SERIAL					1
+
+#define CLOSE_INFO_SERIAL				2
+#define PERIOD_SERIAL					3
+
+
+#define QUERY_CHANNEL_ACK_SERIAL		4
+#define SET_CHANNEL_ACK_SERIAL			5
+
+
+
+
 
 
 /**********topic define end**********************************/

@@ -632,6 +632,11 @@
               <FileType>1</FileType>
               <FilePath>..\UserSrc\userApp.c</FilePath>
             </File>
+            <File>
+              <FileName>networkUtil.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\UserSrc\networkUtil.c</FilePath>
+            </File>
           </Files>
         </Group>
         <Group>
